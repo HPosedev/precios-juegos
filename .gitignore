@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+
+# Base de datos local
+*.db
+*.db-journal
+*.sqlite
+
+# Entorno
+.env
+.env.*
+
+# Logs
+*.log
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store

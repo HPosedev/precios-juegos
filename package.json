@@ -1,0 +1,17 @@
+{
+  "name": "game-key-price-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rastreador en tiempo real de precios de claves de juegos en euros para España y Europa",
+  "scripts": {
+    "dev": "concurrently \"CLIENT_DEV=true bun run --watch server/index.ts --dev\" \"cd client && bun run dev\"",
+    "server": "bun run --watch server/index.ts",
+    "client": "cd client && bun run dev",
+    "build": "cd client && bun run build",
+    "start": "bun run server/index.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
