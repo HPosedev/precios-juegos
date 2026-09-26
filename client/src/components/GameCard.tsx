@@ -6,7 +6,6 @@ import {
   Trash2,
   RefreshCw,
   Tag,
-  ChevronRight,
   ShieldCheck,
   Globe,
   Layers,
@@ -159,7 +158,7 @@ export const GameCard: React.FC<GameCardProps> = ({
             </div>
           </div>
 
-          {/* Buttons: Buy directly or inspect sidebar */}
+          {/* Buy directly at the lowest price */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {game.lowestUrl && game.lowestUrl !== '#' && (
               <a
@@ -173,15 +172,6 @@ export const GameCard: React.FC<GameCardProps> = ({
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
-
-            <button
-              type="button"
-              onClick={() => onSelect(game)}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1 transition shadow-md shadow-emerald-950/20"
-            >
-              <span>Ver ofertas</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
       </div>

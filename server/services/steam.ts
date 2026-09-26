@@ -71,7 +71,13 @@ export async function getSteamOfficialOffer(
 
     if (!response.ok) return { offer: null };
     const json = (await response.json()) as any;
-    const appData = json[appId]?.data;
+    // Steam may key the response by a different id than the one requested
+    // (e.g. a DLC id), so locate the entry by the steam_appid inside the data.
+    const entries = Object.values(json ?? {}) as any[];
+    const appData =
+      entries.find((e) => e?.data?.steam_appid === appId)?.data ??
+      json[appId]?.data ??
+      (entries.length === 1 ? entries[0]?.data : undefined);
     if (!appData) return { offer: null };
 
     const priceOverview = appData.price_overview;
