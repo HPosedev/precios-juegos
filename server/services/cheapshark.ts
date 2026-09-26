@@ -18,6 +18,7 @@ const STORE_NAMES: Record<string, string> = {
   '35': 'DreamGame',
 };
 
+// CheapShark only reports US prices; this fixed rate gives an approximate EUR figure
 const USD_TO_EUR_RATE = 0.92;
 
 export async function getCheapSharkOffers(title: string): Promise<GameOffer[]> {
@@ -84,7 +85,7 @@ export async function getCheapSharkOffers(title: string): Promise<GameOffer[]> {
         url: `https://www.cheapshark.com/redirect?dealID=${deal.dealID}`,
         isAccount: false,
         inStock: true,
-        notes: `Distribuidor oficial autorizado (Clave digital garantizada)`,
+        notes: 'Distribuidor oficial autorizado · precio aproximado (convertido desde USD)',
       });
     }
 

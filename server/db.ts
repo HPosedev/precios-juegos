@@ -25,33 +25,7 @@ db.run(`
   );
 `);
 
-export function getAllTrackedGames(): TrackedGame[] {
-  const query = db.query(`SELECT * FROM tracked_games ORDER BY added_at DESC`);
-  const rows = query.all() as any[];
-
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    slug: row.slug,
-    imageUrl: row.image_url,
-    steamAppId: row.steam_app_id,
-    addedAt: row.added_at,
-    lastChecked: row.last_checked,
-    lowestPrice: row.lowest_price,
-    lowestStore: row.lowest_store,
-    lowestRegion: row.lowest_region,
-    lowestUrl: row.lowest_url,
-    lowestKeyType: row.lowest_key_type,
-    officialPrice: row.official_price ?? undefined,
-    offers: JSON.parse(row.offers_json || '[]'),
-  }));
-}
-
-export function getTrackedGameById(id: string): TrackedGame | null {
-  const query = db.query(`SELECT * FROM tracked_games WHERE id = ?`);
-  const row = query.get(id) as any;
-  if (!row) return null;
-
+function rowToGame(row: any): TrackedGame {
   return {
     id: row.id,
     title: row.title,
@@ -68,6 +42,30 @@ export function getTrackedGameById(id: string): TrackedGame | null {
     officialPrice: row.official_price ?? undefined,
     offers: JSON.parse(row.offers_json || '[]'),
   };
+}
+
+export function getAllTrackedGames(): TrackedGame[] {
+  const rows = db.query(`SELECT * FROM tracked_games ORDER BY added_at DESC`).all() as any[];
+  return rows.map(rowToGame);
+}
+
+export function getTrackedGameById(id: string): TrackedGame | null {
+  const row = db.query(`SELECT * FROM tracked_games WHERE id = ?`).get(id) as any;
+  return row ? rowToGame(row) : null;
+}
+
+/**
+ * Finds an already tracked game by Steam App ID or, failing that, by slug.
+ */
+export function findTrackedGame(slug: string, steamAppId?: number | null): TrackedGame | null {
+  if (steamAppId) {
+    const row = db.query(`SELECT * FROM tracked_games WHERE steam_app_id = ? LIMIT 1`).get(steamAppId) as any;
+    if (row) return rowToGame(row);
+  }
+  // Titles made only of non-Latin characters produce an empty slug, which can't identify a game
+  if (!slug) return null;
+  const row = db.query(`SELECT * FROM tracked_games WHERE slug = ? LIMIT 1`).get(slug) as any;
+  return row ? rowToGame(row) : null;
 }
 
 export function saveTrackedGame(game: TrackedGame): void {

@@ -84,9 +84,6 @@ export function isExactGameMatch(targetTitle: string, candidateTitle: string): b
     'key',
     'bundle',
     'digital',
-    'dlc',
-    'pack',
-    'pass',
     'online',
   ]);
 
@@ -98,4 +95,16 @@ export function isExactGameMatch(targetTitle: string, candidateTitle: string): b
   }
 
   return true;
+}
+
+const CONSOLE_PATTERN = /\b(xbox|playstation|ps[345]|psn|nintendo|switch)\b/i;
+
+/**
+ * Returns true if the candidate product is a console key (Xbox, PlayStation, Switch)
+ * while the tracked title is not. cleanTitleForMatching strips console words, so
+ * without this check console keys would be compared against PC prices.
+ */
+export function isConsoleOnlyProduct(targetTitle: string, ...candidateTexts: string[]): boolean {
+  if (CONSOLE_PATTERN.test(targetTitle)) return false;
+  return candidateTexts.some((t) => CONSOLE_PATTERN.test(t || ''));
 }

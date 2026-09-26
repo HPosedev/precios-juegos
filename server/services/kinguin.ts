@@ -1,5 +1,20 @@
 import type { GameOffer, SearchGameResult } from '../types';
-import { isExactGameMatch } from '../utils/titleMatcher';
+import { isConsoleOnlyProduct, isExactGameMatch } from '../utils/titleMatcher';
+
+const KINGUIN_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+};
+
+async function fetchKinguinProducts(phrase: string): Promise<any[]> {
+  const url = `https://www.kinguin.net/services/library/api/v1/products/search?phrase=${encodeURIComponent(
+    phrase
+  )}&size=15`;
+  const response = await fetch(url, { headers: KINGUIN_HEADERS, signal: AbortSignal.timeout(6000) });
+  if (!response.ok) return [];
+  const data = (await response.json()) as any;
+  return data?._embedded?.products || [];
+}
 
 const ACCOUNT_AND_ITEM_PATTERNS = [
   /account/i,
@@ -28,20 +43,7 @@ const ACCOUNT_AND_ITEM_PATTERNS = [
 
 export async function searchKinguin(query: string): Promise<SearchGameResult[]> {
   try {
-    const url = `https://www.kinguin.net/services/library/api/v1/products/search?phrase=${encodeURIComponent(
-      query + ' Key'
-    )}&size=15`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-
-    if (!response.ok) return [];
-    const data = (await response.json()) as any;
-    const products = data?._embedded?.products || [];
+    const products = await fetchKinguinProducts(`${query} Key`);
 
     const results: SearchGameResult[] = [];
 
@@ -87,28 +89,28 @@ export async function getKinguinOffers(title: string): Promise<GameOffer[]> {
     const offers: GameOffer[] = [];
     const seenIds = new Set<string>();
 
-    for (const phrase of phrases) {
-      const url = `https://www.kinguin.net/services/library/api/v1/products/search?phrase=${encodeURIComponent(
-        phrase
-      )}&size=15`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        },
-        signal: AbortSignal.timeout(6000),
-      }).catch(() => null);
+    // Query variants run in parallel; a failing variant doesn't discard the others
+    const productLists = await Promise.all(
+      phrases.map((phrase) =>
+        fetchKinguinProducts(phrase).catch((err) => {
+          console.error(`Error fetching Kinguin results for "${phrase}":`, err);
+          return [];
+        })
+      )
+    );
 
-      if (!response || !response.ok) continue;
-      const data = (await response.json()) as any;
-      const products = data?._embedded?.products || [];
-
+    for (const products of productLists) {
       for (const p of products) {
         if (seenIds.has(p.id)) continue;
         const name = p.name || '';
 
         // STRICT TITLE MATCH: (Eliminates H.A.D.E.S. Zero, sequel mixups, etc.)
         if (!isExactGameMatch(title, name)) {
+          continue;
+        }
+
+        // PC only: skip Xbox / PlayStation / Switch keys
+        if (isConsoleOnlyProduct(title, name, p.platform || '')) {
           continue;
         }
 

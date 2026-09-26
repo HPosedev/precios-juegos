@@ -1,26 +1,28 @@
 import type { GameOffer, SearchGameResult } from '../types';
-import { isExactGameMatch } from '../utils/titleMatcher';
+import { isConsoleOnlyProduct, isExactGameMatch } from '../utils/titleMatcher';
+
+const IG_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  'Accept-Language': 'es-ES,es;q=0.9',
+};
+
+async function fetchInstantGamingHits(query: string): Promise<any[]> {
+  const url = `https://www.instant-gaming.com/es/busquedas/?q=${encodeURIComponent(query)}`;
+  const response = await fetch(url, { headers: IG_HEADERS, signal: AbortSignal.timeout(6000) });
+  if (!response.ok) return [];
+  const html = await response.text();
+
+  const match = html.match(/window\.searchResults\s*=\s*(\{.+?\});\s*(?:var|window|<\/script>)/s);
+  if (!match) return [];
+
+  const data = JSON.parse(match[1]);
+  return data.hits || [];
+}
 
 export async function searchInstantGaming(query: string): Promise<SearchGameResult[]> {
   try {
-    const url = `https://www.instant-gaming.com/es/busquedas/?q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'Accept-Language': 'es-ES,es;q=0.9',
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-
-    if (!response.ok) return [];
-    const html = await response.text();
-
-    const match = html.match(/window\.searchResults\s*=\s*(\{.+?\});\s*(?:var|window|<\/script>)/s);
-    if (!match) return [];
-
-    const data = JSON.parse(match[1]);
-    const hits = data.hits || [];
+    const hits = await fetchInstantGamingHits(query);
 
     return hits
       .filter((h: any) => h.prod_id && h.name && h.is_dlc === 0)
@@ -52,26 +54,17 @@ export async function getInstantGamingOffers(title: string): Promise<GameOffer[]
     const offers: GameOffer[] = [];
     const seenProdIds = new Set<number>();
 
-    for (const q of queries) {
-      const url = `https://www.instant-gaming.com/es/busquedas/?q=${encodeURIComponent(q)}`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          'Accept-Language': 'es-ES,es;q=0.9',
-        },
-        signal: AbortSignal.timeout(6000),
-      }).catch(() => null);
+    // Query variants run in parallel; a failing variant doesn't discard the others
+    const hitLists = await Promise.all(
+      queries.map((q) =>
+        fetchInstantGamingHits(q).catch((err) => {
+          console.error(`Error fetching Instant Gaming results for "${q}":`, err);
+          return [];
+        })
+      )
+    );
 
-      if (!response || !response.ok) continue;
-      const html = await response.text();
-
-      const match = html.match(/window\.searchResults\s*=\s*(\{.+?\});\s*(?:var|window|<\/script>)/s);
-      if (!match) continue;
-
-      const data = JSON.parse(match[1]);
-      const hits = data.hits || [];
-
+    for (const hits of hitLists) {
       for (const h of hits) {
         if (seenProdIds.has(h.prod_id)) continue;
 
@@ -82,6 +75,11 @@ export async function getInstantGamingOffers(title: string): Promise<GameOffer[]
 
         // STRICT TITLE MATCH:
         if (!isExactGameMatch(title, hitName)) {
+          continue;
+        }
+
+        // PC only: skip Xbox / PlayStation / Switch keys
+        if (isConsoleOnlyProduct(title, hitName, h.platform || '', h.type || '')) {
           continue;
         }
 
