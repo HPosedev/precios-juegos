@@ -2,8 +2,7 @@ import type { GameOffer, SearchGameResult } from '../types';
 import { getInstantGamingOffers, searchInstantGaming } from './instantGaming';
 import { getKinguinOffers, searchKinguin } from './kinguin';
 import { getCheapSharkOffers } from './cheapshark';
-import { getSteamOfficialOffer, searchSteam } from './steam';
-import { isExactGameMatch } from '../utils/titleMatcher';
+import { getSteamOfficialOffer, searchSteam, type SteamOfficialResult } from './steam';
 
 export async function searchAllGames(query: string): Promise<SearchGameResult[]> {
   const cleanQuery = query.trim();
@@ -63,7 +62,7 @@ export async function aggregateGamePrices(
 }> {
   // Fetch from all sources in parallel
   const [steamData, igOffers, kinguinOffers, csOffers] = await Promise.all([
-    getSteamOfficialOffer(title, steamAppId).catch(() => ({ offer: null })),
+    getSteamOfficialOffer(title, steamAppId).catch((): SteamOfficialResult => ({ offer: null })),
     getInstantGamingOffers(title).catch(() => []),
     getKinguinOffers(title).catch(() => []),
     getCheapSharkOffers(title).catch(() => []),

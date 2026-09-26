@@ -25,37 +25,52 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onAddGame, isAdding }) => 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced live search
+  // Debounced live search. Stale requests are aborted so an older, slower
+  // response can never overwrite the results of the latest query.
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults([]);
-      setIsLoading(false);
-      return;
-    }
+    if (trimmed.length < 2) return;
 
-    setIsLoading(true);
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
+      setIsLoading(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           setResults(data);
           setIsOpen(true);
         }
       } catch (err) {
-        console.error('Search error:', err);
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Search error:', err);
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    if (value.trim().length < 2) {
+      setResults([]);
+      setIsOpen(false);
+      setIsLoading(false);
+    }
+  };
+
+  const clearSearch = () => handleQueryChange('');
+
   const handleSelectGame = async (game: SearchGameResult) => {
-    setIsOpen(false);
-    setQuery('');
+    clearSearch();
     await onAddGame({
       title: game.title,
       imageUrl: game.imageUrl,
@@ -67,8 +82,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onAddGame, isAdding }) => 
     e.preventDefault();
     const trimmed = query.trim();
     if (!trimmed) return;
-    setIsOpen(false);
-    setQuery('');
+    clearSearch();
     await onAddGame({ title: trimmed });
   };
 
@@ -87,7 +101,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onAddGame, isAdding }) => 
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value)}
             onFocus={() => query.trim().length >= 2 && setIsOpen(true)}
             placeholder="Buscar juego para añadir (ej: Elden Ring, Cyberpunk 2077, God of War...)"
             className="w-full pl-12 pr-28 py-3.5 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition shadow-xl shadow-black/20"
@@ -96,11 +110,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onAddGame, isAdding }) => 
           {query && (
             <button
               type="button"
-              onClick={() => {
-                setQuery('');
-                setResults([]);
-                setIsOpen(false);
-              }}
+              onClick={clearSearch}
+              title="Limpiar búsqueda"
               className="absolute right-24 p-1 rounded-full text-slate-400 hover:text-white transition"
             >
               <X className="w-4 h-4" />

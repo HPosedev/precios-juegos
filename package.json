@@ -8,7 +8,8 @@
     "server": "bun run --watch server/index.ts",
     "client": "cd client && bun run dev",
     "build": "cd client && bun run build",
-    "start": "bun run server/index.ts"
+    "start": "bun run server/index.ts",
+    "test": "bun test"
   },
   "dependencies": {},
   "devDependencies": {

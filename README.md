@@ -62,9 +62,11 @@ Desarrollada con la arquitectura más eficiente y rápida disponible: **Bun + Ty
 
 ### 1. Iniciar la aplicación (Modo Producción / Autónomo)
 
-Para iniciar la aplicación completa (servidor API + frontend estático compilado) en un solo comando:
+Para iniciar la aplicación completa (servidor API + frontend estático compilado). La primera vez instala dependencias y compila el cliente:
 
 ```bash
+bun install && (cd client && bun install)
+bun run build
 bun start
 ```
 
@@ -94,6 +96,21 @@ Esto iniciará concurrentemente:
 bun run build
 ```
 
+### 4. Tests
+
+```bash
+bun test
+```
+
+### Variables de entorno
+
+| Variable | Efecto |
+|---|---|
+| `PORT` | Puerto del servidor API (por defecto `3001`). |
+| `NO_OPEN=true` / `BROWSER_OPEN=false` | No abrir Firefox automáticamente al arrancar. |
+
+> Los precios de la red autorizada (CheapShark) solo existen en dólares y se convierten a euros con un tipo fijo, así que son **aproximados**.
+
 ---
 
 ## 🗄️ Estructura del Proyecto
@@ -104,6 +121,9 @@ precios-juegos/
 │   ├── index.ts               # Servidor HTTP Bun con rutas API y fallback SPA
 │   ├── db.ts                  # Capa de persistencia SQLite (bun:sqlite)
 │   ├── types.ts               # Tipos TypeScript compartidos
+│   ├── utils/
+│   │   ├── titleMatcher.ts    # Comparación estricta de títulos (secuelas, DLCs, consolas)
+│   │   └── browser.ts         # Apertura automática de Firefox
 │   └── services/
 │       ├── instantGaming.ts   # Integración y scraping con Instant Gaming
 │       ├── kinguin.ts         # Integración con API Kinguin y filtros anti-cuentas
@@ -117,6 +137,7 @@ precios-juegos/
 │   │   │   ├── GameCard.tsx   # Ficha de juego en la lista con precio más bajo y tienda
 │   │   │   ├── SearchBar.tsx  # Buscador con sugerencias en tiempo real
 │   │   │   └── Header.tsx     # Cabecera con estadísticas y refresco global
+│   │   ├── utils/stores.ts    # Colores de tienda e iconos de región compartidos
 │   │   ├── App.tsx            # Componente principal y lógica de estado
 │   │   ├── index.css          # Estilos y configuración Tailwind CSS v4
 │   │   └── types.ts           # Tipos TypeScript del cliente

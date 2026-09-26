@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getRegionIcon, getStoreBadgeColor } from '../utils/stores';
 import type { TrackedGame, GameOffer } from '../types';
 import {
   ExternalLink,
@@ -33,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   if (!game) {
     return (
-      <aside className="w-full lg:w-[420px] lg:flex-shrink-0 bg-slate-900/95 backdrop-blur border-r border-slate-800 p-6 flex flex-col items-center justify-center text-center min-h-[600px] lg:min-h-screen">
+      <aside className="hidden lg:flex w-[420px] flex-shrink-0 bg-slate-900/95 backdrop-blur border-r border-slate-800 p-6 flex-col items-center justify-center text-center min-h-screen">
         <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-4 shadow-lg shadow-black/20">
           <Tag className="w-8 h-8 text-indigo-400" />
         </div>
@@ -67,25 +68,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     officialPrice && bestOffer && bestOffer.inStock
       ? Math.max(0, Math.round(((officialPrice - bestOffer.price) / officialPrice) * 100))
       : 0;
-
-  const getStoreBadgeColor = (store: string) => {
-    const s = store.toLowerCase();
-    if (s.includes('instant')) return 'bg-orange-500/10 text-orange-400 border-orange-500/30';
-    if (s.includes('kinguin')) return 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-    if (s.includes('steam')) return 'bg-blue-600/10 text-blue-400 border-blue-500/30';
-    if (s.includes('greenman')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-    if (s.includes('fanatical')) return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-    if (s.includes('gog')) return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
-    if (s.includes('humble')) return 'bg-red-500/10 text-red-400 border-red-500/30';
-    return 'bg-slate-700/30 text-slate-300 border-slate-700';
-  };
-
-  const getRegionIcon = (region: string) => {
-    const r = region.toLowerCase();
-    if (r.includes('españa') || r.includes('spain')) return '🇪🇸';
-    if (r.includes('europa') || r.includes('europe')) return '🇪🇺';
-    return '🌐';
-  };
 
   const renderOfferCard = (offer: GameOffer, index: number, isOutOfStock = false) => {
     const isBest = !isOutOfStock && index === 0;
@@ -209,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onRefreshGame(game.id)}
             disabled={isRefreshing}
             title="Actualizar precios ahora"
-            className="p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition shadow"
+            className="disabled:opacity-60 disabled:pointer-events-none p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition shadow"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
           </button>

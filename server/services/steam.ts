@@ -1,4 +1,5 @@
 import type { GameOffer, SearchGameResult } from '../types';
+import { isExactGameMatch } from '../utils/titleMatcher';
 
 export async function searchSteam(query: string): Promise<SearchGameResult[]> {
   try {
@@ -34,18 +35,25 @@ export async function searchSteam(query: string): Promise<SearchGameResult[]> {
   }
 }
 
+export interface SteamOfficialResult {
+  offer: GameOffer | null;
+  officialPrice?: number;
+  steamAppId?: number;
+  imageUrl?: string;
+}
+
 export async function getSteamOfficialOffer(
   title: string,
   steamAppId?: number | null
-): Promise<{ offer: GameOffer | null; officialPrice?: number; steamAppId?: number; imageUrl?: string }> {
+): Promise<SteamOfficialResult> {
   try {
     let appId = steamAppId;
 
     if (!appId) {
+      // Only trust a search hit whose title really matches (avoids picking a sequel or DLC)
       const searchResults = await searchSteam(title);
-      if (searchResults.length > 0) {
-        appId = searchResults[0].steamAppId ?? undefined;
-      }
+      const match = searchResults.find((r) => isExactGameMatch(title, r.title));
+      appId = match?.steamAppId ?? undefined;
     }
 
     if (!appId) {

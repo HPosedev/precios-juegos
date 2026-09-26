@@ -11,7 +11,11 @@ import {
   Tag,
   ArrowUpDown,
   Search,
+  AlertCircle,
+  X,
 } from 'lucide-react';
+
+type SortOption = 'lowest' | 'title' | 'recent';
 
 export function App() {
   const [games, setGames] = useState<TrackedGame[]>([]);
@@ -21,30 +25,37 @@ export function App() {
   const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
-  const [sortBy, setSortBy] = useState<'lowest' | 'title' | 'recent'>('recent');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch tracked games on initial load
-  const loadGames = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/games');
-      if (res.ok) {
-        const data = await res.json();
-        setGames(data);
-        if (data.length > 0 && !selectedGameId) {
-          setSelectedGameId(data[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading games:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const loadGames = async () => {
+      try {
+        const res = await fetch('/api/games');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: TrackedGame[] = await res.json();
+        setGames(data);
+        if (data.length > 0) {
+          setSelectedGameId((current) => current ?? data[0].id);
+        }
+      } catch (err) {
+        console.error('Error loading games:', err);
+        setError('No se pudo cargar la lista de juegos. ¿Está el servidor en marcha?');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     loadGames();
   }, []);
+
+  const handleSelectGame = (id: string) => {
+    setSelectedGameId(id);
+    // On small screens the detail panel sits above the list, so bring it into view
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleAddGame = async (gameData: {
     title: string;
@@ -58,14 +69,14 @@ export function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(gameData),
       });
-      if (res.ok) {
-        const newGame: TrackedGame = await res.json();
-        setGames((prev) => [newGame, ...prev.filter((g) => g.id !== newGame.id)]);
-        // Automatically select the newly added game to show sidebar immediately
-        setSelectedGameId(newGame.id);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const newGame: TrackedGame = await res.json();
+      setGames((prev) => [newGame, ...prev.filter((g) => g.id !== newGame.id)]);
+      // Automatically select the newly added game to show sidebar immediately
+      handleSelectGame(newGame.id);
     } catch (err) {
       console.error('Error adding game:', err);
+      setError(`No se pudo añadir "${gameData.title}". Inténtalo de nuevo.`);
     } finally {
       setIsAdding(false);
     }
@@ -74,14 +85,12 @@ export function App() {
   const handleDeleteGame = async (id: string) => {
     try {
       const res = await fetch(`/api/games/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setGames((prev) => prev.filter((g) => g.id !== id));
-        if (selectedGameId === id) {
-          setSelectedGameId(null);
-        }
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setGames((prev) => prev.filter((g) => g.id !== id));
+      setSelectedGameId((current) => (current === id ? null : current));
     } catch (err) {
       console.error('Error deleting game:', err);
+      setError('No se pudo eliminar el juego. Inténtalo de nuevo.');
     }
   };
 
@@ -89,12 +98,12 @@ export function App() {
     try {
       setRefreshingIds((prev) => new Set(prev).add(id));
       const res = await fetch(`/api/games/${id}/refresh`, { method: 'POST' });
-      if (res.ok) {
-        const updated: TrackedGame = await res.json();
-        setGames((prev) => prev.map((g) => (g.id === id ? updated : g)));
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated: TrackedGame = await res.json();
+      setGames((prev) => prev.map((g) => (g.id === id ? updated : g)));
     } catch (err) {
       console.error('Error refreshing game:', err);
+      setError('No se pudieron actualizar los precios. Inténtalo de nuevo.');
     } finally {
       setRefreshingIds((prev) => {
         const next = new Set(prev);
@@ -108,12 +117,12 @@ export function App() {
     try {
       setIsRefreshingAll(true);
       const res = await fetch('/api/games/refresh-all', { method: 'POST' });
-      if (res.ok) {
-        const updatedGames: TrackedGame[] = await res.json();
-        setGames(updatedGames);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updatedGames: TrackedGame[] = await res.json();
+      setGames(updatedGames);
     } catch (err) {
       console.error('Error refreshing all games:', err);
+      setError('No se pudieron actualizar todos los precios. Inténtalo de nuevo.');
     } finally {
       setIsRefreshingAll(false);
     }
@@ -125,7 +134,11 @@ export function App() {
   const filteredGames = games
     .filter((g) => g.title.toLowerCase().includes(searchFilter.toLowerCase()))
     .sort((a, b) => {
-      if (sortBy === 'lowest') return a.lowestPrice - b.lowestPrice;
+      if (sortBy === 'lowest') {
+        // Games without a known price (0) go last instead of first
+        if (!a.lowestPrice || !b.lowestPrice) return (b.lowestPrice ? 1 : 0) - (a.lowestPrice ? 1 : 0);
+        return a.lowestPrice - b.lowestPrice;
+      }
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
     });
@@ -153,6 +166,26 @@ export function App() {
           {/* Top Search bar */}
           <div className="space-y-3">
             <SearchBar onAddGame={handleAddGame} isAdding={isAdding} />
+
+            {error && (
+              <div
+                role="alert"
+                className="p-3 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  title="Cerrar aviso"
+                  className="p-1 rounded-lg text-rose-300 hover:text-white hover:bg-rose-900/50 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Region & Security Guarantees notice banner */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-emerald-950/40 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
@@ -206,7 +239,7 @@ export function App() {
                   <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 ml-1.5" />
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
                     className="bg-transparent text-slate-300 font-medium py-1 pr-2 text-xs focus:outline-none cursor-pointer"
                   >
                     <option value="recent" className="bg-slate-900">Más recientes</option>
@@ -273,7 +306,7 @@ export function App() {
                   key={game.id}
                   game={game}
                   isSelected={game.id === selectedGameId}
-                  onSelect={(g) => setSelectedGameId(g.id)}
+                  onSelect={(g) => handleSelectGame(g.id)}
                   onDelete={handleDeleteGame}
                   onRefresh={handleRefreshGame}
                   isRefreshing={refreshingIds.has(game.id)}
